@@ -169,24 +169,62 @@
 
 ## 论文清单
 
-### 必读（按顺序）
+> ⚠️ **不要现在读论文。** 每篇都标了「解锁阶段」——基础不牢时硬读只会浪费时间。
+> 按阶段解锁，读完一篇就动手复现一次。
 
-**训练与并行**
-1. Attention Is All You Need (2017) — Transformer 基础
-2. ZeRO: Memory Optimizations Toward Training Trillion Parameter Models (2019)
-3. ZeRO-Offload / ZeRO-Infinity
-4. Megatron-LM: Training Multi-Billion Parameter Models (2019) — 张量并行
-5. GPipe (2019) / PipeDream (2019) — 流水并行
+### 前置（阶段 3 解锁）
 
-**高效注意力与算子**
-6. **FlashAttention** (2022) — 必读，理解 IO-aware 优化
-7. FlashAttention-2 (2023)
+必须先有 Transformer 基础，否则后面全是天书。
 
-**推理优化**
-8. **Efficient Memory Management for Large Language Model Serving with PagedAttention** (vLLM, 2023) ⭐
-9. Fast Inference from Transformers via Speculative Decoding (2023)
-10. Orca: A Distributed Serving System for Transformer-Based Generative Models (2022) — Continuous Batching
-11. SmoothQuant / GPTQ / AWQ — 量化
+| # | 论文 / 材料 | 年份 | 一句话 |
+|---|---|---|---|
+| 1 | **The Illustrated Transformer**（博客） | 2018 | 不是论文，但比论文好懂 10 倍，**先看这个** |
+| 2 | Attention Is All You Need | 2017 | Transformer 的起点，一切的地基 |
+
+### KV Cache 线（阶段 5 解锁）
+
+> ⚠️ KV Cache 本身**没有「发明它的论文」**——它是自回归推理的工程常识：
+> 生成第 N 个 token 时，前 N-1 个 token 的 K/V 不会变，所以不必重算。
+> 这条线要读的是**围绕它显存问题的历代优化**。
+
+| # | 论文 | 年份 | 解决的问题 |
+|---|---|---|---|
+| 3 | **Efficiently Scaling Transformer Inference** (Google) | 2022 | ⭐ 系统视角看推理：算力/访存瓶颈、KV Cache 成本分析。**理解推理的第一篇** |
+| 4 | Fast Transformer Decoding: One Write-Head is All You Need | 2019 | MQA：多个 head 共享 K/V，直接砍掉 KV Cache 体积 |
+| 5 | GQA: Training Generalized Multi-Query Transformer | 2023 | 分组查询注意力，MHA 与 MQA 的折中，Llama 2/3 都在用 |
+| 6 | **PagedAttention / vLLM** | 2023 | ⭐ KV Cache 的显存管理，像操作系统分页一样管它 |
+
+**想搞懂 KV Cache 本身，最好的材料其实不是论文：**
+- vLLM 官方博客的 PagedAttention 图解
+- 上面第 3 篇的 Introduction（对 KV Cache 成本的分析极其清楚）
+
+### FlashAttention 线（阶段 5 解锁）
+
+| # | 论文 | 年份 | 一句话 |
+|---|---|---|---|
+| 7 | Online normalizer calculation for softmax | 2018 | 在线 softmax —— FlashAttention 的核心技巧来源 |
+| 8 | Self-attention Does Not Need O(n²) Memory | 2021 | 同样的思想，更早的表述 |
+| 9 | **FlashAttention: Fast and Memory-Efficient Exact Attention with IO-Awareness** | 2022 | ⭐ **核心论文**。关键不是算法，是「别把中间结果写回显存」 |
+| 10 | FlashAttention-2 | 2023 | 更好的并行与工作划分，速度大幅提升 |
+| 11 | FlashAttention-3 | 2024 | 针对 Hopper 架构，异步执行 + 低精度 |
+
+### KV Cache 压缩线（进阶，阶段 5 之后）
+
+| # | 论文 | 年份 | 一句话 |
+|---|---|---|---|
+| 12 | StreamingLLM | 2023 | attention sink 现象，滑动窗口也能保持能力 |
+| 13 | H2O: Heavy-Hitter Oracle | 2023 | 只保留重要的 KV，丢掉无关的 |
+
+### 训练与并行（阶段 4 解锁）
+
+| # | 论文 | 年份 | 一句话 |
+|---|---|---|---|
+| 14 | ZeRO: Memory Optimizations Toward Training Trillion Parameter Models | 2019 | 优化器状态/梯度/参数分片，省显存 |
+| 15 | Megatron-LM | 2019 | 张量并行 |
+| 16 | GPipe / PipeDream | 2019 | 流水并行与气泡 |
+| 17 | Orca | 2022 | Continuous Batching 的系统实现 |
+| 18 | Fast Inference from Transformers via Speculative Decoding | 2023 | 用算力换速度 |
+| 19 | SmoothQuant / GPTQ / AWQ | 2022–23 | 量化 |
 
 ### 选读（按方向）
 - 通信：Ring AllReduce 相关、NCCL 论文
@@ -195,10 +233,17 @@
 - 系统：Checkpointing、容错、调度
 
 ### 读论文的方法
-1. 先读 Abstract + Intro + Conclusion（10 分钟，判断要不要细读）
-2. 再看核心 Figure（通常一张图就是全部思想）
-3. 然后推导关键公式
-4. **最后一定动手实现或复现**——不然一周后全忘
+
+**三遍法**（不要第一遍就想全懂）：
+1. **第一遍**：Abstract + Intro + Conclusion + 所有图（10 分钟）→ 判断值不值得细读
+2. **第二遍**：看核心 Figure，通常一张图就是全部思想；跳过公式
+3. **第三遍**：推导关键公式，对照代码
+
+**四条铁律：**
+- 先读**图**，再读**公式**，最后读**证明**
+- **读不懂是正常的**——前沿论文本来就是给同行看的，第一遍能抓住 20% 就够
+- **一定动手复现**，不然一周后全忘
+- 找不到感觉时，先去看**中文博客 / 视频讲解**，回来再读原文
 
 ---
 
